@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and eligibility data",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "age": { "type": "number" },
+        "income": { "type": "number" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "education": { "type": "string" }
+      },
+      "required": ["name", "email"]
+    },
+    "EligibilityResult": {
+      "title": "EligibilityResult",
+      "description": "Result of an eligibility check",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "inputs": { "type": "object" },
+        "result": { "type": "string" },
+        "explanationEn": { "type": "string" },
+        "explanationTa": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "result", "explanationEn", "explanationTa"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "User uploaded document",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "docName": { "type": "string" },
+        "status": { "type": "string", "enum": ["verified", "pending"] },
+        "fileUrl": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "docName", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/users/{userId}/eligibilityResults/{resultId}": {
+      "schema": "EligibilityResult",
+      "description": "History of eligibility checks"
+    },
+    "/users/{userId}/documents/{docId}": {
+      "schema": "Document",
+      "description": "User documents"
+    }
+  }
+}

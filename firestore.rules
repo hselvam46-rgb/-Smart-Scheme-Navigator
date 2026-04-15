@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - age: number
+    //   - income: number
+    //   - category: string
+    //   - location: string
+    //   - education: string
+    //
+    // Sub-collection: eligibilityResults
+    // Document ID: {resultId}
+    // Fields:
+    //   - userId: string (required)
+    //   - inputs: map
+    //   - result: string (required)
+    //   - explanationEn: string (required)
+    //   - explanationTa: string (required)
+    //   - timestamp: timestamp (required)
+    //
+    // Sub-collection: documents
+    // Document ID: {docId}
+    // Fields:
+    //   - userId: string (required)
+    //   - docName: string (required)
+    //   - status: string (required, enum: ['verified', 'pending'])
+    //   - fileUrl: string
+    //   - timestamp: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isRecent(ts) {
+      return ts is timestamp && 
+             ts > request.time - duration.value(5, 'm') && 
+             ts < request.time + duration.value(5, 'm');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidEligibilityResult(data) {
+      return data.keys().hasAll(['userId', 'result', 'explanationEn', 'explanationTa', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.result is string &&
+             data.explanationEn is string &&
+             data.explanationTa is string &&
+             isRecent(data.timestamp);
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasAll(['userId', 'docName', 'status', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.docName is string &&
+             data.status in ['verified', 'pending'] &&
+             isRecent(data.timestamp) &&
+             (!('fileUrl' in data) || data.fileUrl is string || data.fileUrl == null) &&
+             (!('fileName' in data) || data.fileName is string || data.fileName == null);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      
+      match /eligibilityResults/{resultId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidEligibilityResult(request.resource.data);
+      }
+      
+      match /documents/{docId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidDocument(request.resource.data);
+        allow update: if isOwner(userId) && isValidDocument(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
